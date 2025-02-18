@@ -1,0 +1,32 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: update-gitops
+spec:
+  params:
+    - name: git-url
+      type: string
+      description: "Git repository URL of the nginx-gitops repo"
+    - name: image-name
+      type: string
+      description: "New Docker image tag to be updated"
+  workspaces:
+    - name: source
+  steps:
+    - name: clone-gitops-repo
+      image: alpine/git
+      script: |
+        #!/bin/sh
+        set -ex
+        git clone "$(params.git-url)" /workspace/source
+        cd /workspace/source/k8s
+
+        # Update the image tag in deployment.yaml
+        sed -i "s|image: .*|image: $(params.image-name)|g" deployment.yaml
+
+        # Commit and push the change
+        git config --global user.email "tekton@example.com"
+        git config --global user.name "Tekton Pipeline"
+        git add deployment.yaml
+        git commit -m "Update Nginx image to $(params.image-name)"
+        git push origin main

@@ -1,0 +1,45 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: nginx-deploy-pipeline
+spec:
+  params:
+    - name: nginx-image-repo
+      type: string
+      description: "Git URL of the nginx-image repo"
+    - name: gitops-repo
+      type: string
+      description: "Git URL of the nginx-gitops repo"
+    - name: image-name
+      type: string
+      description: "Docker image name including registry"
+  workspaces:
+    - name: shared-data
+  tasks:
+    - name: build-and-push
+      taskRef:
+        name: build-and-push
+      params:
+        - name: git-url
+          value: "$(params.nginx-image-repo)"
+        - name: image-name
+          #value: "$(params.image-name)"
+          value: "localhost:30996/nginx-custom:latest"
+      workspaces:
+        - name: source
+          workspace: shared-data
+
+    - name: update-gitops
+      taskRef:
+        name: update-gitops
+      runAfter:
+        - build-and-push
+      params:
+        - name: git-url
+          value: "$(params.gitops-repo)"
+        - name: image-name
+          #value: "$(params.image-name):latest"
+          value: "localhost:30996/nginx-custom:latest"
+      workspaces:
+        - name: source
+          workspace: shared-data
