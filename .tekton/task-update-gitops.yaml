@@ -6,27 +6,69 @@ spec:
   params:
     - name: git-url
       type: string
-      description: "Git repository URL of the nginx-gitops repo"
+      description: "GitOps repository"
     - name: image-name
       type: string
-      description: "New Docker image tag to be updated"
+      description: "New Docker image tag"
+    - name: digest-file
+      type: string
+      description: "Image digest from build step"
   workspaces:
     - name: source
+  volumes:
+    - name: ssh-key-volume
+      secret:
+        secretName: git-ssh-key
+        defaultMode: 0600
   steps:
-    - name: clone-gitops-repo
+    - name: clone-gitops
       image: alpine/git
       script: |
         #!/bin/sh
         set -ex
-        git clone "$(params.git-url)" /workspace/source
-        cd /workspace/source/k8s
+        export GIT_SSH_COMMAND="ssh -i /secrets/ssh-key/ssh-privatekey -o StrictHostKeyChecking=no"
+        git clone "$(params.git-url)" /workspace/source/gitops-repo
+      volumeMounts:
+        - name: ssh-key-volume
+          mountPath: /secrets/ssh-key
+          readOnly: true
 
-        # Update the image tag in deployment.yaml
-        sed -i "s|image: .*|image: $(params.image-name)|g" deployment.yaml
-
-        # Commit and push the change
+    - name: update-deployment
+      image: alpine/git
+      script: |
+        #!/bin/sh
+        set -ex
+        echo "Installing kustomzie"
+        apk add --no-cache kustomize
+        cd /workspace/source/gitops-repo
+        # Update the deployment.yaml file with the new image
+        DIGEST=$(cat "$(params.digest-file)")
+        if [ -z "$DIGEST" ]; then
+           echo "ERROR: DIGEST is empty. Exiting."
+           exit 1
+        fi
+        #sed -i "s|image: .*|image: $(params.image-name)@${DIGEST}|g" base/deployment.yaml
+        cd ./base
+        kustomize edit set image nginx=$(params.image-name)@${DIGEST} --stack-trace 
+        cd /workspace/source/gitops-repo
+        # Configure Git
         git config --global user.email "tekton@example.com"
         git config --global user.name "Tekton Pipeline"
-        git add deployment.yaml
-        git commit -m "Update Nginx image to $(params.image-name)"
-        git push origin main
+        git add base/kustomization.yaml
+        git commit -m "Update image to $(params.image-name)"
+
+
+    - name: push-changes
+      image: alpine/git
+      script: |
+        #!/bin/sh
+        set -ex
+        cd /workspace/source/gitops-repo/
+        # Again set the SSH command so push works correctly.
+        export GIT_SSH_COMMAND="ssh -i /secrets/ssh-key/ssh-privatekey -o StrictHostKeyChecking=no"
+        git push origin master
+      volumeMounts:
+        - name: ssh-key-volume
+          mountPath: /secrets/ssh-key
+          readOnly: true
+#kubectl logs -l tekton.dev/pipelineRun=nginx-deploy-run --all-containers=true

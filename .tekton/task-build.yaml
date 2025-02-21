@@ -21,9 +21,9 @@ spec:
         git clone "$(params.git-url)" /workspace/source
     - name: build-and-push
       image: gcr.io/kaniko-project/executor:latest
-      script: |
-        #!/busybox/sh
-        set -e
-        /kaniko/executor --context=/workspace/source \
-                         --destination=$(params.image-name) \
-                         --cache=true
+      args:
+        - --context=/workspace/source
+        - --destination=$(params.image-name)
+        - --digest-file=/workspace/source/digest.txt
+        - --cache=true
+        - --verbosity=debug

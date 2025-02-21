@@ -1,0 +1,25 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: nginx-deploy-run
+spec:
+  pipelineRef:
+    name: nginx-deploy-pipeline
+  params:
+    - name: nginx-image-repo
+      value: "https://github.com/Andrej220/nginx-image.git"
+    - name: gitops-repo
+      value: "git@github.com:Andrej220/nginx.git"
+    - name: image-name
+      value: "10.0.2.15:30996/nginx-custom"
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        metadata:
+          name: pipeline-workspace
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
