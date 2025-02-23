@@ -41,6 +41,7 @@ spec:
         echo "Installing kustomzie"
         apk add --no-cache kustomize
         cd /workspace/source/gitops-repo
+        git checkout test
         # Update the deployment.yaml file with the new image
         DIGEST=$(cat "$(params.digest-file)")
         if [ -z "$DIGEST" ]; then
@@ -49,12 +50,12 @@ spec:
         fi
         #sed -i "s|image: .*|image: $(params.image-name)@${DIGEST}|g" base/deployment.yaml
         cd ./base
-        kustomize edit set image nginx=$(params.image-name)@${DIGEST} --stack-trace 
+        kustomize edit set image nginx=$(params.image-name)@${DIGEST} 
         cd /workspace/source/gitops-repo
         # Configure Git
         git config --global user.email "tekton@example.com"
         git config --global user.name "Tekton Pipeline"
-        git add base/kustomization.yaml
+        git add .
         git commit -m "Update image to $(params.image-name)"
 
 
@@ -66,7 +67,7 @@ spec:
         cd /workspace/source/gitops-repo/
         # Again set the SSH command so push works correctly.
         export GIT_SSH_COMMAND="ssh -i /secrets/ssh-key/ssh-privatekey -o StrictHostKeyChecking=no"
-        git push origin master
+        git push origin test
       volumeMounts:
         - name: ssh-key-volume
           mountPath: /secrets/ssh-key
