@@ -11,7 +11,7 @@ spec:
     - name: gitops-repo
       value: "git@github.com:Andrej220/nginx.git"
     - name: image-name
-      value: "10.0.2.15:30996/nginx-custom"
+      value: "local-registry.registry.svc.cluster.local:5000/nginx-custom"
   workspaces:
     - name: shared-data
       volumeClaimTemplate:
